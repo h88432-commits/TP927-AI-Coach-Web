@@ -7,5 +7,5 @@ export class CloudAuth {
  async invoke(action,payload={}){await this.ensureToken();const r=await fetch(`${this.url}/functions/v1/tp927`,{method:'POST',headers:{apikey:this.key,Authorization:`Bearer ${this.token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});const data=await r.json();if(!r.ok)throw Error(data.error||`服務錯誤 ${r.status}`);return data}
  async get(path){if(!this.token)throw Error('請先登入');const r=await fetch(`${this.url}/rest/v1/${path}`,{headers:{apikey:this.key,Authorization:`Bearer ${this.token}`}});if(!r.ok)throw Error(`雲端讀取失敗 ${r.status}`);return r.json()}
  clear(){this.token=null;this.refreshToken=null;this.expiresAt=0;localStorage.removeItem('tp927_auth')}
- async signOut(){if(this.token)await fetch(`${this.url}/auth/v1/logout`,{method:'POST',headers:{apikey:this.key,Authorization:`Bearer ${this.token}`}});this.clear()}
+ async signOut(){try{if(this.token)await fetch(`${this.url}/auth/v1/logout`,{method:'POST',headers:{apikey:this.key,Authorization:`Bearer ${this.token}`}})}finally{this.clear()}}
 }
