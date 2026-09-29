@@ -1,0 +1,11 @@
+// Browser uses only a public publishable key; all official writes require a trusted server.
+export class CloudAuth {
+ constructor(url,publishableKey){this.url=url.replace(/\/$/,'');this.key=publishableKey;this.token=null;this.refreshToken=null;this.expiresAt=0;try{const saved=JSON.parse(localStorage.getItem('tp927_auth')||'null');if(saved){this.token=saved.token;this.refreshToken=saved.refreshToken;this.expiresAt=saved.expiresAt}}catch{}}
+ setTokens(data){this.token=data.access_token;this.refreshToken=data.refresh_token;this.expiresAt=Date.now()+(data.expires_in||3600)*1000;localStorage.setItem('tp927_auth',JSON.stringify({token:this.token,refreshToken:this.refreshToken,expiresAt:this.expiresAt}))}
+ async signIn(email,password){const r=await fetch(`${this.url}/auth/v1/token?grant_type=password`,{method:'POST',headers:{apikey:this.key,'Content-Type':'application/json'},body:JSON.stringify({email,password})});const data=await r.json();if(!r.ok)throw Error(data.msg||data.error_description||'登入失敗');this.setTokens(data);return data}
+ async ensureToken(){if(!this.refreshToken)throw Error('請先登入');if(this.token&&Date.now()<this.expiresAt-60000)return;const r=await fetch(`${this.url}/auth/v1/token?grant_type=refresh_token`,{method:'POST',headers:{apikey:this.key,'Content-Type':'application/json'},body:JSON.stringify({refresh_token:this.refreshToken})});if(!r.ok){this.clear();throw Error('登入已過期，請重新登入')}this.setTokens(await r.json())}
+ async invoke(action,payload={}){await this.ensureToken();const r=await fetch(`${this.url}/functions/v1/tp927`,{method:'POST',headers:{apikey:this.key,Authorization:`Bearer ${this.token}`,'Content-Type':'application/json'},body:JSON.stringify({action,...payload})});const data=await r.json();if(!r.ok)throw Error(data.error||`服務錯誤 ${r.status}`);return data}
+ async get(path){if(!this.token)throw Error('請先登入');const r=await fetch(`${this.url}/rest/v1/${path}`,{headers:{apikey:this.key,Authorization:`Bearer ${this.token}`}});if(!r.ok)throw Error(`雲端讀取失敗 ${r.status}`);return r.json()}
+ clear(){this.token=null;this.refreshToken=null;this.expiresAt=0;localStorage.removeItem('tp927_auth')}
+ async signOut(){if(this.token)await fetch(`${this.url}/auth/v1/logout`,{method:'POST',headers:{apikey:this.key,Authorization:`Bearer ${this.token}`}});this.clear()}
+}
